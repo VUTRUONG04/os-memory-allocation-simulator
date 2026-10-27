@@ -3,10 +3,70 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:OSMemoryAllocationSimulator"
+        xmlns:local="clr-namespace:OSMemoryAllocationSimulator.Views.Simulation"
+        xmlns:eval="clr-namespace:OSMemoryAllocationSimulator.Views.Evaluation"
         mc:Ignorable="d"
-        Title="Memory Allocation Simulator" Height="450" Width="800">
-    <Grid>
+        Title="Memory Allocation Simulator"
+        Height="720"
+        Width="1080"
+        MinHeight="600"
+        MinWidth="850"
+        Background="{StaticResource BrushBg}"
+        WindowStartupLocation="CenterScreen">
+    <DockPanel>
 
-    </Grid>
+        <!-- Header -->
+        <Grid DockPanel.Dock="Top"
+              Height="64"
+              Background="{StaticResource BrushSurface}">
+
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Application title -->
+            <TextBlock Grid.Column="0"
+                       Text="Memory Lab"
+                       FontSize="{StaticResource FontSizeTitle}"
+                       FontWeight="Bold"
+                       Foreground="Black"
+                       Margin="20,0"
+                       VerticalAlignment="Center" />
+
+            <!-- Navigation tabs -->
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        Margin="0,0,16,0">
+
+                <Button x:Name="BtnTabSimulation"
+                        Content="Mô phỏng"
+                        Style="{StaticResource BtnPrimary}"
+                        Margin="0"
+                        Click="BtnTabSimulation_Click"/>
+
+                <Button x:Name="BtnTabEvaluation"
+                        Content="Đánh giá"
+                        Style="{StaticResource BtnSecondary}"
+                        Margin="8,0,0,0"
+                        Click="BtnTabEvaluation_Click"/>
+
+
+
+            </StackPanel>
+        </Grid>
+
+        <!-- Main content area -->
+        <Grid x:Name="ContentArea"
+              Margin="20">
+
+            <!-- SimulationConfigView and the subsequent simulation view -->
+            <local:SimulationConfigView x:Name="ViewSimulation"/>
+            <!-- EvaluationView -->
+            <eval:EvaluationView x:Name="ViewEvaluation"
+                                 Visibility="Collapsed"/>
+        </Grid>
+
+    </DockPanel>
 </Window>

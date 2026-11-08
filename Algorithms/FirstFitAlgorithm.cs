@@ -11,6 +11,17 @@ public sealed class FirstFitAlgorithm : IFitAlgorithm
 
     public MemoryRegion? FindFit(IReadOnlyList<MemoryRegion> freeRegions, int requiredSize)
     {
-        throw new NotImplementedException("Chưa triển khai — task ALGO-02.");
+        ArgumentNullException.ThrowIfNull(freeRegions);
+
+        // freeRegions đã sắp xếp theo StartAddress tăng dần -> vùng đủ lớn đầu tiên là kết quả.
+        for (int i = 0; i < freeRegions.Count; i++)
+        {
+            if (freeRegions[i].Size >= requiredSize)
+            {
+                return freeRegions[i];
+            }
+        }
+
+        return null;
     }
 }

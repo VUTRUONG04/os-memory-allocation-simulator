@@ -42,4 +42,33 @@ public class ModelsTests
         Assert.True(region.IsFree);
         Assert.Null(region.ProcessId);
     }
+
+    [Fact]
+    public void ComparisonRecord_ShouldCalculateAverageRuntimeAutomatically()
+    {
+        var record = new ComparisonRecord(
+            workloadName: "Workload1",
+            algorithm: "FirstFit",
+            operationCount: 10,
+            memorySize: 1024,
+            allocationUnit: 64,
+            totalAllocationRequests: 8,
+            successfulAllocations: 7,
+            failedAllocations: 1,
+            successRate: 0.875,
+            usedMemory: 512,
+            freeMemory: 512,
+            freeBlockCount: 2,
+            largestFreeBlock: 384,
+            totalInternalFragmentation: 20,
+            runtimeRun1Ms: 10.0,
+            runtimeRun2Ms: 12.0,
+            runtimeRun3Ms: 14.0,
+            runtimeRun4Ms: 16.0,
+            runtimeRun5Ms: 18.0);
+
+        Assert.Equal("Workload1", record.WorkloadName);
+        Assert.Equal("FirstFit", record.Algorithm);
+        Assert.Equal(14.0, record.AverageRuntimeMs); // (10+12+14+16+18)/5 = 14.0
+    }
 }

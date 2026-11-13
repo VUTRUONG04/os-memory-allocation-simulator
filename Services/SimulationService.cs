@@ -1,4 +1,3 @@
-
 using OSMemoryAllocationSimulator.Algorithms;
 using OSMemoryAllocationSimulator.Models;
 
@@ -14,7 +13,7 @@ public sealed class SimulationService
     private readonly IFitAlgorithm _algorithm;
     private readonly IReadOnlyList<WorkloadOperation> _workload;
 
-    private MemoryManager _memoryManager;
+    private MemoryManager _memoryManager = null!;
     private int _nextOperationIndex;
 
     private readonly List<TraceEntry> _trace = new();
@@ -72,21 +71,18 @@ public sealed class SimulationService
             .ToList();
 
         // Kiểm tra Sequence có bị trùng hay không
-        if (_workload
-            .Select(operation => operation.Sequence)
-            .Distinct()
-            .Count() != _workload.Count)
+        for (int i = 1; i < _workload.Count; i++)
         {
-            throw new ArgumentException(
-                "Sequence trong workload phải là duy nhất.",
-                nameof(workload));
+            if (_workload[i].Sequence == _workload[i - 1].Sequence)
+            {
+                throw new ArgumentException(
+                    $"Sequence {_workload[i].Sequence} trong workload bị trùng lặp.",
+                    nameof(workload));
+            }
         }
 
-        // Khởi tạo bộ nhớ ban đầu
-        _memoryManager = new MemoryManager(_config);
-
-        // Vị trí thao tác ban đầu
-        _nextOperationIndex = 0;
+        // Khởi tạo trạng thái mô phỏng ban đầu
+        Reset();
     }
 
 
@@ -137,9 +133,6 @@ public sealed class SimulationService
             Step();
         }
 
-        // Tổng kết kết quả
-        TryComplete();
-
         return Result!;
     }
 
@@ -170,8 +163,7 @@ public sealed class SimulationService
 
     private void TryComplete()
     {
-        // Chỉ tổng kết khi đã chạy hết workload
-        // và chưa có kết quả trước đó
+        // Chỉ tổng kết khi đã chạy hết workload và chưa có kết quả trước đó
         if (!IsCompleted || Result is not null)
         {
             return;

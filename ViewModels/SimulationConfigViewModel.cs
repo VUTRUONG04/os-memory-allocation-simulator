@@ -8,6 +8,7 @@ using OSMemoryAllocationSimulator.Services;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows.Threading;
+using OSMemoryAllocationSimulator.Data.Csv;
 
 namespace OSMemoryAllocationSimulator.ViewModels;
 
@@ -26,7 +27,7 @@ public partial class SimulationConfigViewModel : BaseViewModel
     private int allocationUnit = 64;
 
     [ObservableProperty]
-    private string selectedAlgorithm = "FirstFit (Mock)";
+    private string selectedAlgorithm = "First-Fit";
 
     [ObservableProperty]
     private string statusMessage = "Chưa bắt đầu mô phỏng.";
@@ -57,9 +58,9 @@ public partial class SimulationConfigViewModel : BaseViewModel
 
     public ObservableCollection<string> AlgorithmOptions { get; } = new()
     {
-        "FirstFit (Mock)",
-        "BestFit (Chưa triển khai)",
-        "WorstFit (Chưa triển khai)"
+        "First-Fit",
+        "Best-Fit",
+        "Worst-Fit"
     };
 
     public ObservableCollection<MemoryRegion> MemoryMap { get; } = new();
@@ -83,7 +84,7 @@ public partial class SimulationConfigViewModel : BaseViewModel
 
     private IReadOnlyList<WorkloadOperation> _workload;
 
-    private readonly WorkloadCsvService _csvService = new();
+    private readonly CsvWorkloadReader _csvReader = new();
 
     public SimulationConfigViewModel()
     {
@@ -118,22 +119,20 @@ public partial class SimulationConfigViewModel : BaseViewModel
 
     private void InvalidateSimulation()
     {
-        _simulationService = null;
+        ClearSimulationState();
+        StatusMessage = "Cấu hình đã thay đổi. Hãy bắt đầu mô phỏng lại.";
+    }
+
+    private void ClearSimulationState()
+    {
         _simulationTimer.Stop();
         IsRunning = false;
+        _simulationService = null;
         MemoryMap.Clear();
         TraceEntries.Clear();
-
-        UsedMemory = 0;
-        FreeMemory = 0;
-        FreeBlockCount = 0;
-        LargestFreeBlock = 0;
-        TotalInternalFragmentation = 0;
-        MemoryUsagePercentage = 0;
-
-        StatusMessage =
-            "Cấu hình đã thay đổi. Hãy bắt đầu mô phỏng lại.";
+        ResetStatistics();
     }
+
     // ==========================================
     // 5. ResetStatistics()
     // ==========================================
@@ -185,18 +184,20 @@ public partial class SimulationConfigViewModel : BaseViewModel
         try
         {
             // Đọc và kiểm tra dữ liệu CSV
-            var operations = _csvService.Load(dialog.FileName);
-
-            // Chỉ cập nhật workload khi đọc CSV thành công
-            _workload = operations;
-
-            CsvFilePath = dialog.FileName;
-
-            // Xóa kết quả mô phỏng cũ
-            InvalidateSimulation();
-
-            StatusMessage =
-                $"Nạp CSV thành công: {operations.Count} thao tác.";
+            var result = _csvReader.Read(dialog.FileName);
+            if (result.IsSuccess)
+            {
+                _workload = result.Value!;
+                CsvFilePath = dialog.FileName;
+                InvalidateSimulation();
+                StatusMessage = $"Nạp CSV thành công: {_workload.Count} thao tác.";
+            }
+            else
+            {
+                // Lấy lỗi đầu tiên hoặc nối các lỗi để báo lên màn hình
+                var firstError = result.Errors[0];
+                StatusMessage = $"Lỗi CSV dòng {firstError.LineNumber}: {firstError.Message}";
+            }
         }
         catch (Exception ex)
         {
@@ -211,22 +212,8 @@ public partial class SimulationConfigViewModel : BaseViewModel
     [RelayCommand]
     private void StartSimulation()
     {
-        // Kiểm tra cấu hình bộ nhớ
         _simulationTimer.Stop();
         IsRunning = false;
-        if (MemorySize <= 0 || AllocationUnit <= 0)
-        {
-            StatusMessage =
-                "MemorySize và AllocationUnit phải lớn hơn 0.";
-            return;
-        }
-
-        if (MemorySize < AllocationUnit)
-        {
-            StatusMessage =
-                "MemorySize phải lớn hơn hoặc bằng AllocationUnit.";
-            return;
-        }
 
         // Kiểm tra workload
         if (_workload == null || _workload.Count == 0)
@@ -235,25 +222,24 @@ public partial class SimulationConfigViewModel : BaseViewModel
             return;
         }
 
-        // Hiện tại chỉ hỗ trợ FirstFit Mock
-        if (SelectedAlgorithm != "FirstFit (Mock)")
-        {
-            StatusMessage =
-                "Thuật toán này chưa được triển khai. Hãy chọn FirstFit (Mock).";
-            return;
-        }
-
         try
         {
-            // Tạo cấu hình mô phỏng
+            // Tự validate MemorySize và AllocationUnit trong SimulationConfig
             var config = new SimulationConfig(
                 MemorySize,
                 AllocationUnit);
 
+            IFitAlgorithm algorithm = SelectedAlgorithm switch
+            {
+                "Best-Fit" => new BestFitAlgorithm(),
+                "Worst-Fit" => new WorstFitAlgorithm(),
+                _ => new FirstFitAlgorithm()
+            };
+
             // Khởi tạo SimulationService
             _simulationService = new SimulationService(
                 config,
-                new SimpleFirstFitMock(),
+                algorithm,
                 _workload);
 
             // Xóa dữ liệu cũ trên giao diện
@@ -266,20 +252,15 @@ public partial class SimulationConfigViewModel : BaseViewModel
             StatusMessage =
                 $"Mô phỏng đã sẵn sàng. Có {_workload.Count} thao tác cần thực hiện.";
         }
+        catch (ArgumentException ex)
+        {
+            ClearSimulationState();
+            StatusMessage = ex.Message;
+        }
         catch (Exception ex)
         {
-            _simulationTimer.Stop();
-            IsRunning = false;
-
-            _simulationService = null;
-
-            MemoryMap.Clear();
-            TraceEntries.Clear();
-
-            ResetStatistics();
-
-            StatusMessage =
-                $"Không thể bắt đầu mô phỏng: {ex.Message}";
+            ClearSimulationState();
+            StatusMessage = $"Không thể bắt đầu mô phỏng: {ex.Message}";
         }
     }
 
@@ -336,11 +317,7 @@ public partial class SimulationConfigViewModel : BaseViewModel
 
         if (_simulationService is null)
         {
-            MemoryMap.Clear();
-            TraceEntries.Clear();
-
-            ResetStatistics();
-
+            ClearSimulationState();
             StatusMessage = "Chưa có mô phỏng để đặt lại.";
             return;
         }
@@ -389,22 +366,6 @@ public partial class SimulationConfigViewModel : BaseViewModel
             : 0;
     }
 
-    // ==========================================
-    // 11. SIMPLE FIRST FIT MOCK
-    // ==========================================
-
-    private sealed class SimpleFirstFitMock : IFitAlgorithm
-    {
-        public string Name => "FirstFitMock";
-
-        public MemoryRegion? FindFit(
-            IReadOnlyList<MemoryRegion> freeRegions,
-            int requiredSize)
-        {
-            return freeRegions.FirstOrDefault(
-                region => region.Size >= requiredSize);
-        }
-    }
     [RelayCommand]
     private void Run()
     {

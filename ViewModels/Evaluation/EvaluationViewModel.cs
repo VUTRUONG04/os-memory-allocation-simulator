@@ -1,158 +1,214 @@
-﻿using System;
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.ComponentModel;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Windows.Input;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using OSMemoryAllocationSimulator.Models;
 using OSMemoryAllocationSimulator.Services;
-namespace OSMemoryAllocationSimulator.ViewModels
-{
-    public sealed class EvaluationViewModel : BaseViewModel
-    {
-        private readonly EvaluationService _service;
-        private bool _isRunning;
-        private string _evaluationComment = "Chưa có kết quả. Hãy chạy đánh giá.";
-        private EvaluationConfig _config = new() { InitialFreeBlocks = new[] { 100, 250, 400, 600 } };
-        private EvaluationWorkload _workload = new()
-        {
-            Operations = new[]
-            {
-                new WorkloadOperation { Type = WorkloadOperationType.Allocate, Size = 80, BlockId = "A" },
-                new WorkloadOperation { Type = WorkloadOperationType.Allocate, Size = 200, BlockId = "B" },
-                new WorkloadOperation { Type = WorkloadOperationType.Allocate, Size = 350, BlockId = "C" },
-                new WorkloadOperation { Type = WorkloadOperationType.Allocate, Size = 700, BlockId = "D" },
-                new WorkloadOperation { Type = WorkloadOperationType.Free, BlockId = "B" }
-            }
-        };
 
-        public ObservableCollection<EvaluationResult> ComparisonResults { get; } = new();
+namespace OSMemoryAllocationSimulator.ViewModels.Evaluation
+{
+    
+    public sealed record ComparisonRow(
+        string AlgorithmName,
+        int TotalAllocateRequests,
+        int SuccessCount,
+        int FailureCount,
+        double? SuccessRate, // phần trăm 0..100; null nếu không có ALLOCATE
+        double RuntimeRun1Ms,
+        double RuntimeRun2Ms,
+        double RuntimeRun3Ms,
+        double RuntimeRun4Ms,
+        double RuntimeRun5Ms,
+        double AverageRuntimeMs,
+        int TotalInternalFragmentation,
+        int LargestFreeBlock);
+
+    /// <summary>Một điểm dữ liệu cho biểu đồ. Value2 dùng cho biểu đồ 2 cột (thất bại).</summary>
+    public sealed record ChartPoint(string Label, double Value, double Value2 = 0);
+
+    public partial class EvaluationViewModel : BaseViewModel
+    {
+        private readonly IEvaluationService _service;
+        private IReadOnlyList<WorkloadOperation> _workload = SampleWorkload();
+
+        [ObservableProperty]
+        private int memorySize = 4096;
+
+        [ObservableProperty]
+        private int allocationUnit = 64;
+
+        [ObservableProperty]
+        [NotifyCanExecuteChangedFor(nameof(RunEvaluationCommand))]
+        private bool isRunning;
+
+        [ObservableProperty]
+        private string statusMessage = "Chưa chạy đánh giá.";
+
+        [ObservableProperty]
+        private string evaluationComment = string.Empty;
+
+        public ObservableCollection<ComparisonRow> ComparisonResults { get; } = new();
         public ObservableCollection<ChartPoint> AllocationChart { get; } = new();
         public ObservableCollection<ChartPoint> FragmentationChart { get; } = new();
         public ObservableCollection<ChartPoint> LargestFreeBlockChart { get; } = new();
         public ObservableCollection<ChartPoint> RuntimeChart { get; } = new();
 
-        public bool IsRunning
+        public EvaluationViewModel() : this(new EvaluationService())
         {
-            get => _isRunning;
-            private set { _isRunning = value; OnPropertyChanged(nameof(IsRunning)); }
-        }
-        public string EvaluationComment
-        {
-            get => _evaluationComment;
-            private set { _evaluationComment = value; OnPropertyChanged(nameof(EvaluationComment)); }
         }
 
-        public ICommand RunEvaluationCommand { get; }
-        public ICommand ExportComparisonCommand { get; }
-
-        public EvaluationViewModel() : this(new EvaluationService()) { }
-        public EvaluationViewModel(EvaluationService service)
+        public EvaluationViewModel(IEvaluationService service)
         {
             _service = service;
-            RunEvaluationCommand = new AsyncCommand(RunEvaluationAsync, () => !IsRunning);
-            ExportComparisonCommand = new RelayCommand(ExportComparison);
         }
 
-        public void UpdateInput(EvaluationConfig config, EvaluationWorkload workload)
+        /// <summary>Nạp workload hợp lệ. Kết quả cũ bị xóa.</summary>
+        public void SetWorkload(IReadOnlyList<WorkloadOperation> workload)
         {
-            _config = config ?? throw new ArgumentNullException(nameof(config));
-            _workload = workload ?? throw new ArgumentNullException(nameof(workload));
+            _workload = workload;
             ClearResults();
         }
 
-        public async Task RunEvaluationAsync()
-        {
-            if (IsRunning) return;
-            IsRunning = true;
-            ClearResults();
-            try
-            {
-                var results = await Task.Run(async () =>
-                    await _service.EvaluateAsync(_config, _workload).ConfigureAwait(false));
-                foreach (var result in results) ComparisonResults.Add(result);
-                RefreshCharts();
-                EvaluationComment = BuildObjectiveComment(results.ToArray());
-            }
-            catch (Exception ex)
-            {
-                EvaluationComment = "Không thể đánh giá: " + ex.Message;
-            }
-            finally { IsRunning = false; }
-        }
-
-        private void RefreshCharts()
-        {
-            AllocationChart.Clear(); FragmentationChart.Clear();
-            LargestFreeBlockChart.Clear(); RuntimeChart.Clear();
-            foreach (var r in ComparisonResults)
-            {
-                AllocationChart.Add(new ChartPoint(r.AlgorithmName, r.SuccessCount, r.FailureCount));
-                FragmentationChart.Add(new ChartPoint(r.AlgorithmName, r.TotalInternalFragmentation));
-                LargestFreeBlockChart.Add(new ChartPoint(r.AlgorithmName, r.LargestFreeBlock));
-                RuntimeChart.Add(new ChartPoint(r.AlgorithmName, r.AverageRuntimeMs));
-            }
-            OnPropertyChanged(nameof(AllocationChart));
-            OnPropertyChanged(nameof(FragmentationChart));
-            OnPropertyChanged(nameof(LargestFreeBlockChart));
-            OnPropertyChanged(nameof(RuntimeChart));
-        }
-
-        private static string BuildObjectiveComment(EvaluationResult[] results)
-        {
-            if (results.Length == 0) return "Không có dữ liệu để nhận xét.";
-            var fastest = results.OrderBy(x => x.AverageRuntimeMs).First();
-            var mostSuccessful = results.OrderByDescending(x => x.SuccessRate ?? -1).First();
-            var leastFragmented = results.OrderBy(x => x.TotalInternalFragmentation).First();
-            return $"Theo workload hiện tại: thời gian trung bình thấp nhất là {fastest.AlgorithmName} " +
-                   $"({fastest.AverageRuntimeMs:F4} ms); tỷ lệ thành công cao nhất là {mostSuccessful.AlgorithmName} " +
-                   $"({(mostSuccessful.SuccessRate.HasValue ? mostSuccessful.SuccessRate.Value.ToString("F2") + "%" : "N/A")}); " +
-                   $"phân mảnh nội bộ thấp nhất là {leastFragmented.AlgorithmName} " +
-                   $"({leastFragmented.TotalInternalFragmentation}). Kết luận chỉ áp dụng cho cấu hình/workload này.";
-        }
+        partial void OnMemorySizeChanged(int value) => ClearResults();
+        partial void OnAllocationUnitChanged(int value) => ClearResults();
 
         private void ClearResults()
         {
-            ComparisonResults.Clear(); AllocationChart.Clear(); FragmentationChart.Clear();
-            LargestFreeBlockChart.Clear(); RuntimeChart.Clear();
-            EvaluationComment = "Đã xóa kết quả cũ. Hãy chạy đánh giá lại.";
+            if (ComparisonResults.Count == 0) return;
+
+            ComparisonResults.Clear();
+            AllocationChart.Clear();
+            FragmentationChart.Clear();
+            LargestFreeBlockChart.Clear();
+            RuntimeChart.Clear();
+            EvaluationComment = string.Empty;
+            StatusMessage = "Cấu hình hoặc workload đã thay đổi, hãy chạy lại đánh giá.";
         }
 
+        private bool CanRun() => !IsRunning;
+
+        [RelayCommand(CanExecute = nameof(CanRun))]
+        private async Task RunEvaluationAsync()
+        {
+            if (_workload.Count == 0)
+            {
+                StatusMessage = "Chưa có workload.";
+                return;
+            }
+
+            IsRunning = true;
+            StatusMessage = "Đang chạy...";
+            ComparisonResults.Clear();
+
+            try
+            {
+                var config = new SimulationConfig(MemorySize, AllocationUnit);
+                var workload = _workload;
+                var result = await Task.Run(() => _service.Run(config, workload));
+
+                Fill(result);
+                StatusMessage = "Hoàn thành.";
+            }
+            catch (OperationCanceledException)
+            {
+                StatusMessage = "Đã hủy.";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Lỗi: {ex.Message}";
+            }
+            finally
+            {
+                IsRunning = false;
+            }
+        }
+
+        [RelayCommand]
         private void ExportComparison()
         {
-            Debug.WriteLine("Exporting comparison CSV...");
-            EvaluationComment = "Chức năng xuất CSV đang ở chế độ mock (ghi log Debug).";
+            // Tạm thời: chưa có CsvExporter (theo task Jira).
+            Debug.WriteLine("Exporting...");
+            StatusMessage = "Xuất CSV so sánh: chưa có CsvExporter.";
         }
-    }
 
-    public sealed class ChartPoint
-    {
-        public string Label { get; }
-        public double Value { get; }
-        public double SecondaryValue { get; }
-        public ChartPoint(string label, double value, double secondaryValue = 0)
-            => (Label, Value, SecondaryValue) = (label, value, secondaryValue);
-    }
+        private void Fill(EvaluationResult result)
+        {
+            ComparisonResults.Clear();
+            AllocationChart.Clear();
+            FragmentationChart.Clear();
+            LargestFreeBlockChart.Clear();
+            RuntimeChart.Clear();
 
-    public sealed class RelayCommand : ICommand
-    {
-        private readonly Action _execute;
-        private readonly Func<bool>? _canExecute;
-        public RelayCommand(Action execute, Func<bool>? canExecute = null)
-            => (_execute, _canExecute) = (execute, canExecute);
-        public bool CanExecute(object? parameter) => _canExecute?.Invoke() ?? true;
-        public void Execute(object? parameter) => _execute();
-        public event EventHandler? CanExecuteChanged { add { } remove { } }
-    }
+            foreach (var a in result.Algorithms)
+            {
+                var m = a.Result.FinalMetrics;
+                var t = a.RuntimesMs;
 
-    public sealed class AsyncCommand : ICommand
-    {
-        private readonly Func<Task> _execute;
-        private readonly Func<bool>? _canExecute;
-        public AsyncCommand(Func<Task> execute, Func<bool>? canExecute = null)
-            => (_execute, _canExecute) = (execute, canExecute);
-        public bool CanExecute(object? parameter) => _canExecute?.Invoke() ?? true;
-        public async void Execute(object? parameter) => await _execute();
-        public event EventHandler? CanExecuteChanged { add { } remove { } }
+                ComparisonResults.Add(new ComparisonRow(
+                    a.Algorithm,
+                    a.TotalAllocationRequests,
+                    a.SuccessfulAllocations,
+                    a.FailedAllocations,
+                    a.SuccessRate * 100,
+                    t[0], t[1], t[2], t[3], t[4],
+                    a.AverageRuntimeMs,
+                    m.TotalInternalFragmentation,
+                    m.LargestFreeBlock));
+
+                AllocationChart.Add(new ChartPoint(a.Algorithm, a.SuccessfulAllocations, a.FailedAllocations));
+                FragmentationChart.Add(new ChartPoint(a.Algorithm, m.TotalInternalFragmentation));
+                LargestFreeBlockChart.Add(new ChartPoint(a.Algorithm, m.LargestFreeBlock));
+                RuntimeChart.Add(new ChartPoint(a.Algorithm, a.AverageRuntimeMs));
+            }
+
+            EvaluationComment = BuildComment(ComparisonResults);
+        }
+
+        // Nhận xét khách quan, chỉ dựa trên số liệu, không thiên vị thuật toán nào.
+        private static string BuildComment(IReadOnlyList<ComparisonRow> rows)
+        {
+            if (rows.Count == 0) return string.Empty;
+
+            static string Names(IEnumerable<ComparisonRow> r) => string.Join(", ", r.Select(x => x.AlgorithmName));
+
+            var parts = new List<string>();
+
+            var withRate = rows.Where(r => r.SuccessRate.HasValue).ToList();
+            if (withRate.Count > 0)
+            {
+                double best = withRate.Max(r => r.SuccessRate!.Value);
+                parts.Add($"Tỷ lệ cấp phát thành công cao nhất ({best:F2}%): {Names(withRate.Where(r => r.SuccessRate == best))}.");
+            }
+            else
+            {
+                parts.Add("Workload không có yêu cầu ALLOCATE nên không có tỷ lệ thành công.");
+            }
+
+            int minFrag = rows.Min(r => r.TotalInternalFragmentation);
+            parts.Add($"Phân mảnh nội thấp nhất ({minFrag}): {Names(rows.Where(r => r.TotalInternalFragmentation == minFrag))}.");
+
+            int maxFree = rows.Max(r => r.LargestFreeBlock);
+            parts.Add($"Vùng trống lớn nhất ({maxFree}): {Names(rows.Where(r => r.LargestFreeBlock == maxFree))}.");
+
+            double minTime = rows.Min(r => r.AverageRuntimeMs);
+            parts.Add($"Thời gian chạy trung bình thấp nhất ({minTime:F4} ms): {Names(rows.Where(r => r.AverageRuntimeMs == minTime))}.");
+
+            return string.Join(" ", parts);
+        }
+
+        // Workload mẫu để chạy thử giao diện khi chưa có bộ đọc CSV.
+        private static IReadOnlyList<WorkloadOperation> SampleWorkload() => new List<WorkloadOperation>
+        {
+            new(1, MemoryOperationType.Allocate, "P1", 500),
+            new(2, MemoryOperationType.Allocate, "P2", 1200),
+            new(3, MemoryOperationType.Allocate, "P3", 300),
+            new(4, MemoryOperationType.Free, "P2", null),
+            new(5, MemoryOperationType.Allocate, "P4", 700),
+            new(6, MemoryOperationType.Allocate, "P5", 2500),
+            new(7, MemoryOperationType.Free, "P1", null),
+            new(8, MemoryOperationType.Allocate, "P6", 400)
+        };
     }
 }
+
+

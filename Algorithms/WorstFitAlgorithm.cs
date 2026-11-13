@@ -12,6 +12,26 @@ public sealed class WorstFitAlgorithm : IFitAlgorithm
 
     public MemoryRegion? FindFit(IReadOnlyList<MemoryRegion> freeRegions, int requiredSize)
     {
-        throw new NotImplementedException("Chưa triển khai — task ALGO-04.");
+        ArgumentNullException.ThrowIfNull(freeRegions);
+
+        MemoryRegion? worst = null;
+
+        for (int i = 0; i < freeRegions.Count; i++)
+        {
+            MemoryRegion candidate = freeRegions[i];
+            if (candidate.Size < requiredSize)
+            {
+                continue;
+            }
+
+            if (worst is null
+                || candidate.Size > worst.Size
+                || (candidate.Size == worst.Size && candidate.StartAddress < worst.StartAddress))
+            {
+                worst = candidate;
+            }
+        }
+
+        return worst;
     }
 }

@@ -1,53 +1,67 @@
-﻿<UserControl x:Class="MemoryAllocationApp.Views.Evaluation.EvaluationView"
+﻿<UserControl x:Class="OSMemoryAllocationSimulator.Views.Evaluation.EvaluationView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="clr-namespace:OSMemoryAllocationSimulator.ViewModels">
-	<UserControl.DataContext>
-		<vm:EvaluationViewModel />
-	</UserControl.DataContext>
-	<ScrollViewer VerticalScrollBarVisibility="Auto">
-		<StackPanel Margin="20">
-			<TextBlock Text="ĐÁNH GIÁ THUẬT TOÁN CẤP PHÁT BỘ NHỚ"
-                       FontSize="20" FontWeight="Bold" Margin="0,0,0,14"/>
-			<StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-				<Button Content="Chạy đánh giá" Command="{Binding RunEvaluationCommand}" Padding="16,8" Margin="0,0,8,0"/>
-				<Button Content="Xuất CSV so sánh" Command="{Binding ExportComparisonCommand}" Padding="16,8"/>
-			</StackPanel>
-			<TextBlock Text="{Binding EvaluationComment}" TextWrapping="Wrap" Margin="0,0,0,14"/>
-			<TextBlock Text="Bảng so sánh" FontSize="16" FontWeight="SemiBold"/>
-			<DataGrid ItemsSource="{Binding ComparisonResults}" AutoGenerateColumns="False"
-                      IsReadOnly="True" CanUserAddRows="False" Margin="0,8,0,18">
-				<DataGrid.Columns>
-					<DataGridTextColumn Header="Thuật toán" Binding="{Binding AlgorithmName}"/>
-					<DataGridTextColumn Header="Tổng yêu cầu" Binding="{Binding TotalAllocateRequests}"/>
-					<DataGridTextColumn Header="Thành công" Binding="{Binding SuccessCount}"/>
-					<DataGridTextColumn Header="Thất bại" Binding="{Binding FailureCount}"/>
-					<DataGridTextColumn Header="Tỷ lệ thành công (%)" Binding="{Binding SuccessRate, StringFormat=F2}"/>
-					<DataGridTextColumn Header="Run 1 (ms)" Binding="{Binding RuntimeRun1Ms}"/>
-					<DataGridTextColumn Header="Run 2 (ms)" Binding="{Binding RuntimeRun2Ms}"/>
-					<DataGridTextColumn Header="Run 3 (ms)" Binding="{Binding RuntimeRun3Ms}"/>
-					<DataGridTextColumn Header="Run 4 (ms)" Binding="{Binding RuntimeRun4Ms}"/>
-					<DataGridTextColumn Header="Run 5 (ms)" Binding="{Binding RuntimeRun5Ms}"/>
-					<DataGridTextColumn Header="TB (ms)" Binding="{Binding AverageRuntimeMs, StringFormat=F4}"/>
-					<DataGridTextColumn Header="Phân mảnh nội bộ" Binding="{Binding TotalInternalFragmentation}"/>
-					<DataGridTextColumn Header="Vùng trống lớn nhất" Binding="{Binding LargestFreeBlock}"/>
-				</DataGrid.Columns>
-			</DataGrid>
-			<TextBlock Text="Dữ liệu biểu đồ (bind các collection này vào thư viện chart của dự án)" FontSize="16" FontWeight="SemiBold"/>
-			<TextBlock Text="1. Cấp phát thành công / thất bại" FontWeight="SemiBold" Margin="0,8,0,2"/>
-			<ItemsControl ItemsSource="{Binding AllocationChart}">
-				<ItemsControl.ItemTemplate>
-					<DataTemplate>
-						<TextBlock Text="{Binding Label, StringFormat={}{0}: Thành công / thất bại}" />
-					</DataTemplate>
-				</ItemsControl.ItemTemplate>
-			</ItemsControl>
-			<TextBlock Text="2. Phân mảnh nội bộ" FontWeight="SemiBold" Margin="0,8,0,2"/>
-			<ItemsControl ItemsSource="{Binding FragmentationChart}"/>
-			<TextBlock Text="3. Vùng trống lớn nhất" FontWeight="SemiBold" Margin="0,8,0,2"/>
-			<ItemsControl ItemsSource="{Binding LargestFreeBlockChart}"/>
-			<TextBlock Text="4. Thời gian chạy trung bình" FontWeight="SemiBold" Margin="0,8,0,2"/>
-			<ItemsControl ItemsSource="{Binding RuntimeChart}"/>
-		</StackPanel>
-	</ScrollViewer>
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="clr-namespace:OSMemoryAllocationSimulator.Views.Evaluation"
+             mc:Ignorable="d"
+             d:DesignHeight="450" d:DesignWidth="800"
+             Background="{StaticResource BrushBg}">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="32">
+
+            <!-- Screen header -->
+            <TextBlock Text="Cấu hình đánh giá"
+                       FontSize="{StaticResource FontSizeTitle}"
+                       FontWeight="Bold"
+                       Foreground="{StaticResource BrushTextPrimary}" />
+
+            <TextBlock Text="Thiết lập bộ nhớ và workload trước khi chạy đánh giá."
+                       Margin="0,8,0,24"
+                       Foreground="{StaticResource BrushTextSecondary}" />
+
+            <!-- Configuration sections -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Card 1: Cấu hình bộ nhớ -->
+                <Border Grid.Column="0"
+                        Style="{StaticResource CardBorder}">
+                    <TextBlock Text="Cấu hình bộ nhớ"
+                               Margin="12"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Foreground="{StaticResource BrushTextPrimary}" />
+                </Border>
+
+                <!-- Card 2: Chọn workload -->
+                <Border Grid.Column="1"
+                        Style="{StaticResource CardBorder}"
+                        Margin="12,0,0,0">
+                    <TextBlock Text="Chọn workload"
+                               Margin="12"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Foreground="{StaticResource BrushTextPrimary}" />
+                </Border>
+
+                <!-- Card 3: Khởi chạy đánh giá -->
+                <Border Grid.Column="2"
+                        Style="{StaticResource CardBorder}"
+                        Margin="12,0,0,0">
+                    <TextBlock Text="Khởi chạy đánh giá"
+                               Margin="12"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Foreground="{StaticResource BrushTextPrimary}" />
+                </Border>
+            </Grid>
+
+        </StackPanel>
+    </ScrollViewer>
 </UserControl>

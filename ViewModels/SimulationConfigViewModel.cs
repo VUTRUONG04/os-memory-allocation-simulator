@@ -65,6 +65,9 @@ public partial class SimulationConfigViewModel : BaseViewModel
 
     public ObservableCollection<MemoryRegion> MemoryMap { get; } = new();
 
+    // Các khối hiển thị dạng thanh, có chiều rộng tỷ lệ theo Size của từng vùng nhớ.
+    public ObservableCollection<MemoryBlockViewModel> MemoryBlocks { get; } = new();
+
     public ObservableCollection<TraceEntry> TraceEntries { get; } = new();
 
     // ==========================================
@@ -129,6 +132,7 @@ public partial class SimulationConfigViewModel : BaseViewModel
         IsRunning = false;
         _simulationService = null;
         MemoryMap.Clear();
+        MemoryBlocks.Clear();
         TraceEntries.Clear();
         ResetStatistics();
     }
@@ -244,6 +248,7 @@ public partial class SimulationConfigViewModel : BaseViewModel
 
             // Xóa dữ liệu cũ trên giao diện
             MemoryMap.Clear();
+            MemoryBlocks.Clear();
             TraceEntries.Clear();
 
             // Hiển thị bộ nhớ ban đầu
@@ -343,12 +348,37 @@ public partial class SimulationConfigViewModel : BaseViewModel
         if (_simulationService is null)
             return;
 
-        // Cập nhật Memory Map
+        // Cập nhật Memory Map và thanh trực quan (không giữ lại khối của bước trước).
         MemoryMap.Clear();
+        MemoryBlocks.Clear();
+
+        const double visualMapWidth = 700.0;
 
         foreach (var region in _simulationService.MemoryMap)
         {
             MemoryMap.Add(region);
+
+            // Tổng chiều rộng các khối luôn bằng visualMapWidth;
+            // vùng nhớ lớn hơn sẽ chiếm phần rộng hơn trên thanh trực quan.
+            var blockWidth = MemorySize > 0
+                ? region.Size / (double)MemorySize * visualMapWidth
+                : 0;
+
+            var blockLabel = blockWidth >= 64
+                ? (region.IsFree
+                    ? $"Trống\n{region.Size} KB"
+                    : $"{region.ProcessId}\n{region.Size} KB")
+                : string.Empty;
+
+            var blockToolTip = region.IsFree
+                ? $"Vùng trống | Địa chỉ: {region.StartAddress} | Kích thước: {region.Size} KB"
+                : $"Tiến trình: {region.ProcessId} | Địa chỉ: {region.StartAddress} | Kích thước: {region.Size} KB | Yêu cầu: {region.RequestedSize} KB";
+
+            MemoryBlocks.Add(new MemoryBlockViewModel(
+                blockWidth,
+                region.IsFree,
+                blockLabel,
+                blockToolTip));
         }
 
         // Cập nhật Statistics
@@ -394,5 +424,26 @@ public partial class SimulationConfigViewModel : BaseViewModel
         IsRunning = false;
 
         StatusMessage = "Mô phỏng đã tạm dừng.";
+    }
+}
+
+
+/// <summary>
+/// Dữ liệu trình bày cho một khối trên thanh Memory Map trực quan.
+/// Width được tính theo tỷ lệ Size / MemorySize.
+/// </summary>
+public sealed class MemoryBlockViewModel
+{
+    public double Width { get; }
+    public bool IsFree { get; }
+    public string Label { get; }
+    public string ToolTip { get; }
+
+    public MemoryBlockViewModel(double width, bool isFree, string label, string toolTip)
+    {
+        Width = width;
+        IsFree = isFree;
+        Label = label;
+        ToolTip = toolTip;
     }
 }

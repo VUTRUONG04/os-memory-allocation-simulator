@@ -8,368 +8,555 @@
         <vm:SimulationConfigViewModel/>
     </UserControl.DataContext>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="24">
+    <!--
+        Layout chính:
+        - Header nằm phía trên, chiếm toàn bộ chiều rộng.
+        - Cột trái: Cấu hình, Workload, Điều khiển, Statistics.
+        - Cột phải: Memory Map và Operation Trace.
+        - Chỉ cột trái cuộn độc lập; hai bảng bên phải luôn nằm trong vùng nhìn thấy.
+    -->
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
-            <!-- HEADER -->
+        <!-- HEADER -->
+        <StackPanel Grid.Row="0"
+                    Margin="0,0,0,16">
             <TextBlock Text="Mô phỏng cấp phát bộ nhớ"
                        FontSize="26"
                        FontWeight="Bold"
                        Foreground="{StaticResource BrushTextPrimary}"/>
 
             <TextBlock Text="Cấu hình và theo dõi quá trình cấp phát bộ nhớ."
-                       Margin="0,8,0,20"
+                       Margin="0,8,0,0"
                        Foreground="{StaticResource BrushTextSecondary}"/>
+        </StackPanel>
 
-            <!-- 1. CONFIGURATION -->
-            <Border Style="{StaticResource CardBorder}"
-                    Padding="16"
-                    Margin="0,0,0,16">
+        <!-- BODY: TWO COLUMNS -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="0.95*"/>
+                <ColumnDefinition Width="16"/>
+                <ColumnDefinition Width="1.45*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- LEFT COLUMN: CONFIGURATION AND CONTROLS -->
+            <ScrollViewer Grid.Column="0"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
 
                 <StackPanel>
-                    <TextBlock Text="1. Cấu hình mô phỏng"
-                               FontSize="18"
-                               FontWeight="Bold"
-                               Margin="0,0,0,12"/>
+
+                    <!-- 1. CONFIGURATION -->
+                    <Border Style="{StaticResource CardBorder}"
+                            Padding="16"
+                            Margin="0,0,0,12">
+
+                        <StackPanel>
+                            <TextBlock Text="1. Cấu hình mô phỏng"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       Margin="0,0,0,12"/>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0"
+                                            Margin="4">
+                                    <TextBlock Text="MemorySize (KB)"
+                                               Margin="0,0,0,6"/>
+
+                                    <TextBox Text="{Binding MemorySize,
+                                                            Mode=TwoWay,
+                                                            UpdateSourceTrigger=PropertyChanged}"
+                                             Style="{StaticResource InputTextBox}"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1"
+                                            Margin="4">
+                                    <TextBlock Text="AllocationUnit (KB)"
+                                               Margin="0,0,0,6"/>
+
+                                    <TextBox Text="{Binding AllocationUnit,
+                                                            Mode=TwoWay,
+                                                            UpdateSourceTrigger=PropertyChanged}"
+                                             Style="{StaticResource InputTextBox}"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2"
+                                            Margin="4">
+                                    <TextBlock Text="Thuật toán"
+                                               Margin="0,0,0,6"/>
+
+                                    <ComboBox ItemsSource="{Binding AlgorithmOptions}"
+                                              SelectedItem="{Binding SelectedAlgorithm,
+                                                                     Mode=TwoWay}"
+                                              Padding="6"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 2. WORKLOAD CONFIGURATION -->
+                    <Border Style="{StaticResource CardBorder}"
+                            Padding="16"
+                            Margin="0,0,0,12">
+
+                        <StackPanel>
+                            <TextBlock Text="2. Cấu hình Workload"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       Margin="0,0,0,12"/>
+
+                            <TextBlock Text="Chọn nguồn dữ liệu đầu vào"
+                                       Style="{StaticResource FieldLabel}"/>
+
+                            <WrapPanel Margin="0,8,0,12">
+                                <Button Content="Sử dụng dữ liệu mẫu"
+                                        Command="{Binding LoadPresetCommand}"
+                                        Padding="14,8"
+                                        Margin="4"/>
+
+                                <Button Content="Chọn file CSV"
+                                        Command="{Binding BrowseAndLoadCsvCommand}"
+                                        Padding="14,8"
+                                        Margin="4"/>
+                            </WrapPanel>
+
+                            <TextBlock Text="Đường dẫn file CSV"
+                                       Style="{StaticResource FieldLabel}"/>
+
+                            <TextBox Text="{Binding CsvFilePath, Mode=OneWay}"
+                                     IsReadOnly="True"
+                                     Style="{StaticResource InputTextBox}"
+                                     Margin="0,6,0,8"/>
+
+                            <TextBlock Text="Có thể sử dụng workload mẫu hoặc nạp dữ liệu từ file CSV."
+                                       TextWrapping="Wrap"
+                                       Foreground="{StaticResource BrushTextSecondary}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 3. SIMULATION CONTROLS -->
+                    <Border Style="{StaticResource CardBorder}"
+                            Padding="16"
+                            Margin="0,0,0,12">
+
+                        <StackPanel>
+                            <TextBlock Text="3. Điều khiển mô phỏng"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       Margin="0,0,0,12"/>
+
+                            <WrapPanel>
+                                <Button Content="Start Simulation"
+                                        Command="{Binding StartSimulationCommand}"
+                                        Padding="16,8"
+                                        Margin="4"/>
+
+                                <Button Content="Run"
+                                        Command="{Binding RunCommand}"
+                                        Padding="16,8"
+                                        Margin="4"/>
+
+                                <Button Content="Pause"
+                                        Command="{Binding PauseCommand}"
+                                        Padding="16,8"
+                                        Margin="4"/>
+
+                                <Button Content="Step"
+                                        Command="{Binding StepCommand}"
+                                        Padding="16,8"
+                                        Margin="4"/>
+
+                                <Button Content="Reset"
+                                        Command="{Binding ResetCommand}"
+                                        Padding="16,8"
+                                        Margin="4"/>
+                            </WrapPanel>
+
+                            <TextBlock Text="{Binding StatusMessage}"
+                                       Margin="4,12,4,0"
+                                       TextWrapping="Wrap"
+                                       Foreground="{StaticResource BrushTextPrimary}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 4. MEMORY STATISTICS -->
+                    <Border Style="{StaticResource CardBorder}"
+                            Padding="16"
+                            Margin="0,0,0,12">
+
+                        <StackPanel>
+                            <TextBlock Text="4. Memory Statistics"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       Margin="0,0,0,16"/>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- USED MEMORY -->
+                                <StackPanel Grid.Row="0"
+                                            Grid.Column="0"
+                                            Margin="6">
+                                    <TextBlock Text="Used Memory"
+                                               Foreground="{StaticResource BrushTextSecondary}"/>
+
+                                    <TextBlock Text="{Binding UsedMemory, StringFormat={}{0} KB}"
+                                               FontSize="22"
+                                               FontWeight="Bold"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+
+                                <!-- FREE MEMORY -->
+                                <StackPanel Grid.Row="0"
+                                            Grid.Column="1"
+                                            Margin="6">
+                                    <TextBlock Text="Free Memory"
+                                               Foreground="{StaticResource BrushTextSecondary}"/>
+
+                                    <TextBlock Text="{Binding FreeMemory, StringFormat={}{0} KB}"
+                                               FontSize="22"
+                                               FontWeight="Bold"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+
+                                <!-- FREE BLOCK COUNT -->
+                                <StackPanel Grid.Row="0"
+                                            Grid.Column="2"
+                                            Margin="6">
+                                    <TextBlock Text="Free Blocks"
+                                               Foreground="{StaticResource BrushTextSecondary}"/>
+
+                                    <TextBlock Text="{Binding FreeBlockCount}"
+                                               FontSize="22"
+                                               FontWeight="Bold"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+
+                                <!-- LARGEST FREE BLOCK -->
+                                <StackPanel Grid.Row="1"
+                                            Grid.Column="0"
+                                            Margin="6,18,6,6">
+                                    <TextBlock Text="Largest Free Block"
+                                               Foreground="{StaticResource BrushTextSecondary}"/>
+
+                                    <TextBlock Text="{Binding LargestFreeBlock, StringFormat={}{0} KB}"
+                                               FontSize="22"
+                                               FontWeight="Bold"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+
+                                <!-- INTERNAL FRAGMENTATION -->
+                                <StackPanel Grid.Row="1"
+                                            Grid.Column="1"
+                                            Margin="6,18,6,6">
+                                    <TextBlock Text="Internal Fragmentation"
+                                               Foreground="{StaticResource BrushTextSecondary}"/>
+
+                                    <TextBlock Text="{Binding TotalInternalFragmentation, StringFormat={}{0} KB}"
+                                               FontSize="22"
+                                               FontWeight="Bold"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+
+                                <!-- MEMORY USAGE -->
+                                <StackPanel Grid.Row="1"
+                                            Grid.Column="2"
+                                            Margin="6,18,6,6">
+                                    <TextBlock Text="Memory Usage"
+                                               Foreground="{StaticResource BrushTextSecondary}"/>
+
+                                    <TextBlock Text="{Binding MemoryUsagePercentage, StringFormat={}{0:F2}%}"
+                                               FontSize="22"
+                                               FontWeight="Bold"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <ProgressBar Value="{Binding MemoryUsagePercentage}"
+                                         Maximum="100"
+                                         Height="12"
+                                         Margin="6,18,6,0"/>
+                        </StackPanel>
+                    </Border>
+
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- RIGHT COLUMN: MEMORY MAP AND OPERATION TRACE -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="1.1*"/>
+                    <RowDefinition Height="12"/>
+                    <RowDefinition Height="0.9*"/>
+                </Grid.RowDefinitions>
+
+                <!-- 5. MEMORY MAP -->
+                <Border Grid.Row="0"
+                        Style="{StaticResource CardBorder}"
+                        Padding="16"
+                        Margin="0">
 
                     <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-
-                        <StackPanel Grid.Column="0"
-                                    Margin="4">
-                            <TextBlock Text="MemorySize (KB)"
-                                       Margin="0,0,0,6"/>
-
-                            <TextBox Text="{Binding MemorySize,
-                                                    Mode=TwoWay,
-                                                    UpdateSourceTrigger=PropertyChanged}"
-                                     Style="{StaticResource InputTextBox}"/>
-                        </StackPanel>
-
-                        <StackPanel Grid.Column="1"
-                                    Margin="4">
-                            <TextBlock Text="AllocationUnit (KB)"
-                                       Margin="0,0,0,6"/>
-
-                            <TextBox Text="{Binding AllocationUnit,
-                                                    Mode=TwoWay,
-                                                    UpdateSourceTrigger=PropertyChanged}"
-                                     Style="{StaticResource InputTextBox}"/>
-                        </StackPanel>
-
-                        <StackPanel Grid.Column="2"
-                                    Margin="4">
-                            <TextBlock Text="Thuật toán"
-                                       Margin="0,0,0,6"/>
-
-                            <ComboBox ItemsSource="{Binding AlgorithmOptions}"
-                                      SelectedItem="{Binding SelectedAlgorithm,
-                                                             Mode=TwoWay}"
-                                      Padding="6"/>
-                        </StackPanel>
-                    </Grid>
-                </StackPanel>
-            </Border>
-
-            <!-- 2. WORKLOAD CONFIGURATION -->
-            <Border Style="{StaticResource CardBorder}"
-                    Padding="16"
-                    Margin="0,0,0,16">
-
-                <StackPanel>
-                    <TextBlock Text="2. Cấu hình Workload"
-                               FontSize="18"
-                               FontWeight="Bold"
-                               Margin="0,0,0,12"/>
-
-                    <TextBlock Text="Chọn nguồn dữ liệu đầu vào"
-                               Style="{StaticResource FieldLabel}"/>
-
-                    <WrapPanel Margin="0,8,0,12">
-
-                        <Button Content="Sử dụng dữ liệu mẫu"
-                                Command="{Binding LoadPresetCommand}"
-                                Padding="14,8"
-                                Margin="4"/>
-
-                        <Button Content="Chọn file CSV"
-                                Command="{Binding BrowseAndLoadCsvCommand}"
-                                Padding="14,8"
-                                Margin="4"/>
-
-                    </WrapPanel>
-
-                    <TextBlock Text="Đường dẫn file CSV"
-                               Style="{StaticResource FieldLabel}"/>
-
-                    <TextBox Text="{Binding CsvFilePath, Mode=OneWay}"
-                             IsReadOnly="True"
-                             Style="{StaticResource InputTextBox}"
-                             Margin="0,6,0,8"/>
-
-                    <TextBlock Text="Có thể sử dụng workload mẫu hoặc nạp dữ liệu từ file CSV."
-                               TextWrapping="Wrap"
-                               Foreground="{StaticResource BrushTextSecondary}"/>
-
-                </StackPanel>
-            </Border>
-
-            <!-- 3. SIMULATION CONTROLS -->
-            <Border Style="{StaticResource CardBorder}"
-                    Padding="16"
-                    Margin="0,0,0,16">
-
-                <StackPanel>
-                    <TextBlock Text="3. Điều khiển mô phỏng"
-                               FontSize="18"
-                               FontWeight="Bold"
-                               Margin="0,0,0,12"/>
-
-                    <WrapPanel>
-                        <Button Content="Start Simulation"
-                                Command="{Binding StartSimulationCommand}"
-                                Padding="16,8"
-                                Margin="4"/>
-
-                        <Button Content="Run"
-                                Command="{Binding RunCommand}"
-                                Padding="16,8"
-                                Margin="4"/>
-
-                        <Button Content="Pause"
-                                Command="{Binding PauseCommand}"
-                                Padding="16,8"
-                                Margin="4"/>
-
-                        <Button Content="Step"
-                                Command="{Binding StepCommand}"
-                                Padding="16,8"
-                                Margin="4"/>
-
-                        <Button Content="Reset"
-                                Command="{Binding ResetCommand}"
-                                Padding="16,8"
-                                Margin="4"/>
-                    </WrapPanel>
-
-                    <TextBlock Text="{Binding StatusMessage}"
-                               Margin="4,12,4,0"
-                               TextWrapping="Wrap"
-                               Foreground="{StaticResource BrushTextPrimary}"/>
-                </StackPanel>
-            </Border>
-
-
-            <!-- 4. MEMORY STATISTICS -->
-            <Border Style="{StaticResource CardBorder}"
-                    Padding="16"
-                    Margin="0,0,0,16">
-
-                <StackPanel>
-                    <TextBlock Text="4. Memory Statistics"
-                               FontSize="18"
-                               FontWeight="Bold"
-                               Margin="0,0,0,16"/>
-
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <!-- USED MEMORY -->
-                        <StackPanel Grid.Row="0"
-                                    Grid.Column="0"
-                                    Margin="6">
-                            <TextBlock Text="Used Memory"
-                                       Foreground="{StaticResource BrushTextSecondary}"/>
+                        <TextBlock Grid.Row="0"
+                                   Text="5. Memory Map"
+                                   FontSize="18"
+                                   FontWeight="Bold"
+                                   Margin="0,0,0,8"/>
 
-                            <TextBlock Text="{Binding UsedMemory, StringFormat={}{0} KB}"
-                                       FontSize="22"
-                                       FontWeight="Bold"
-                                       Margin="0,6,0,0"/>
-                        </StackPanel>
-
-                        <!-- FREE MEMORY -->
-                        <StackPanel Grid.Row="0"
-                                    Grid.Column="1"
-                                    Margin="6">
-                            <TextBlock Text="Free Memory"
-                                       Foreground="{StaticResource BrushTextSecondary}"/>
-
-                            <TextBlock Text="{Binding FreeMemory, StringFormat={}{0} KB}"
-                                       FontSize="22"
-                                       FontWeight="Bold"
-                                       Margin="0,6,0,0"/>
-                        </StackPanel>
-
-                        <!-- FREE BLOCK COUNT -->
-                        <StackPanel Grid.Row="0"
-                                    Grid.Column="2"
-                                    Margin="6">
-                            <TextBlock Text="Free Blocks"
-                                       Foreground="{StaticResource BrushTextSecondary}"/>
-
-                            <TextBlock Text="{Binding FreeBlockCount}"
-                                       FontSize="22"
-                                       FontWeight="Bold"
-                                       Margin="0,6,0,0"/>
-                        </StackPanel>
-
-                        <!-- LARGEST FREE BLOCK -->
+                        <!-- Thanh trực quan: mỗi vùng nhớ có chiều rộng tỷ lệ với Size. -->
                         <StackPanel Grid.Row="1"
-                                    Grid.Column="0"
-                                    Margin="6,18,6,6">
-                            <TextBlock Text="Largest Free Block"
-                                       Foreground="{StaticResource BrushTextSecondary}"/>
+                                    Margin="0,0,0,12">
+                            <TextBlock Text="Sơ đồ phân bố bộ nhớ"
+                                       FontWeight="SemiBold"
+                                       Margin="0,0,0,6"/>
 
-                            <TextBlock Text="{Binding LargestFreeBlock, StringFormat={}{0} KB}"
-                                       FontSize="22"
-                                       FontWeight="Bold"
-                                       Margin="0,6,0,0"/>
+                            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                          VerticalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{Binding MemoryBlocks}"
+                                              Width="700"
+                                              HorizontalAlignment="Left">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Width="{Binding Width}"
+                                                    Height="48"
+                                                    BorderBrush="White"
+                                                    BorderThickness="1"
+                                                    ToolTip="{Binding ToolTip}">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background"
+                                                                Value="#BFDBFE"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsFree}"
+                                                                    Value="True">
+                                                                <Setter Property="Background"
+                                                                        Value="#BBF7D0"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock Text="{Binding Label}"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"
+                                                           TextAlignment="Center"
+                                                           FontSize="10"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#1E293B"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+
+                            <WrapPanel Margin="0,8,0,0">
+                                <StackPanel Orientation="Horizontal"
+                                        Margin="0,0,16,0">
+                                    <Border Width="12"
+                                            Height="12"
+                                            Background="#BBF7D0"
+                                            BorderBrush="#94A3B8"
+                                            BorderThickness="1"
+                                            Margin="0,0,5,0"/>
+                                    <TextBlock Text="Vùng trống"
+                                            VerticalAlignment="Center"
+                                            FontSize="11"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Width="12"
+                                            Height="12"
+                                            Background="#BFDBFE"
+                                            BorderBrush="#94A3B8"
+                                            BorderThickness="1"
+                                            Margin="0,0,5,0"/>
+                                    <TextBlock Text="Đã cấp phát"
+                                            VerticalAlignment="Center"
+                                            FontSize="11"/>
+                                </StackPanel>
+                            </WrapPanel>
                         </StackPanel>
 
-                        <!-- INTERNAL FRAGMENTATION -->
-                        <StackPanel Grid.Row="1"
-                                    Grid.Column="1"
-                                    Margin="6,18,6,6">
-                            <TextBlock Text="Internal Fragmentation"
-                                       Foreground="{StaticResource BrushTextSecondary}"/>
+                        <DataGrid Grid.Row="2"
+                                  ItemsSource="{Binding MemoryMap}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
+                                  HeadersVisibility="Column"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  GridLinesVisibility="All"
+                                  HorizontalGridLinesBrush="#CBD5E1"
+                                  VerticalGridLinesBrush="#CBD5E1">
 
-                            <TextBlock Text="{Binding TotalInternalFragmentation, StringFormat={}{0} KB}"
-                                       FontSize="22"
-                                       FontWeight="Bold"
-                                       Margin="0,6,0,0"/>
-                        </StackPanel>
+                            <!-- Phân biệt vùng nhớ trống và vùng nhớ đã cấp phát -->
+                            <DataGrid.RowStyle>
+                                <Style TargetType="DataGridRow">
+                                    <Setter Property="Background"
+                                            Value="#EFF6FF"/>
+                                    <Setter Property="Foreground"
+                                            Value="#1E293B"/>
+                                    <Setter Property="BorderBrush"
+                                            Value="#CBD5E1"/>
+                                    <Setter Property="BorderThickness"
+                                            Value="0,0,0,1"/>
+                                    <Setter Property="SnapsToDevicePixels"
+                                            Value="True"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsFree}"
+                                                Value="True">
+                                            <Setter Property="Background"
+                                                    Value="#DCFCE7"/>
+                                            <Setter Property="Foreground"
+                                                    Value="#166534"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsFree}"
+                                                Value="False">
+                                            <Setter Property="Background"
+                                                    Value="#DBEAFE"/>
+                                            <Setter Property="Foreground"
+                                                    Value="#1E40AF"/>
+                                        </DataTrigger>
+                                        <Trigger Property="IsSelected"
+                                                Value="True">
+                                            <Setter Property="Background"
+                                                    Value="#FDE68A"/>
+                                            <Setter Property="Foreground"
+                                                    Value="#78350F"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.RowStyle>
 
-                        <!-- MEMORY USAGE -->
-                        <StackPanel Grid.Row="1"
-                                    Grid.Column="2"
-                                    Margin="6,18,6,6">
-                            <TextBlock Text="Memory Usage"
-                                       Foreground="{StaticResource BrushTextSecondary}"/>
+                            <DataGrid.CellStyle>
+                                <Style TargetType="DataGridCell">
+                                    <Setter Property="Background"
+                                            Value="Transparent"/>
+                                    <Setter Property="BorderBrush"
+                                            Value="#CBD5E1"/>
+                                    <Setter Property="BorderThickness"
+                                            Value="0,0,1,0"/>
+                                    <Setter Property="Padding"
+                                            Value="6,4"/>
+                                </Style>
+                            </DataGrid.CellStyle>
 
-                            <TextBlock Text="{Binding MemoryUsagePercentage, StringFormat={}{0:F2}%}"
-                                       FontSize="22"
-                                       FontWeight="Bold"
-                                       Margin="0,6,0,0"/>
-                        </StackPanel>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Start Address"
+                                                    Binding="{Binding StartAddress}"
+                                                    Width="*"/>
+
+                                <DataGridTextColumn Header="Size (KB)"
+                                                    Binding="{Binding Size}"
+                                                    Width="*"/>
+
+                                <DataGridTextColumn Header="Is Free"
+                                                    Binding="{Binding IsFree}"
+                                                    Width="*"/>
+
+                                <DataGridTextColumn Header="Process ID"
+                                                    Binding="{Binding ProcessId}"
+                                                    Width="*"/>
+
+                                <DataGridTextColumn Header="Requested Size"
+                                                    Binding="{Binding RequestedSize}"
+                                                    Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
                     </Grid>
+                </Border>
 
-                    <ProgressBar Value="{Binding MemoryUsagePercentage}"
-                                 Maximum="100"
-                                 Height="12"
-                                 Margin="6,18,6,0"/>
+                <!-- 6. OPERATION TRACE -->
+                <Border Grid.Row="2"
+                        Style="{StaticResource CardBorder}"
+                        Padding="16"
+                        Margin="0">
 
-                </StackPanel>
-            </Border>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
 
-            <!-- 5. MEMORY MAP -->
+                        <TextBlock Grid.Row="0"
+                                   Text="6. Operation Trace"
+                                   FontSize="18"
+                                   FontWeight="Bold"
+                                   Margin="0,0,0,12"/>
 
-            <Border Style="{StaticResource CardBorder}"
-                    Padding="16"
-                    Margin="0,0,0,16">
+                        <DataGrid Grid.Row="1"
+                                  ItemsSource="{Binding TraceEntries}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
+                                  HeadersVisibility="Column"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto">
 
-                <StackPanel>
-                    <TextBlock Text="4. Memory Map"
-                               FontSize="18"
-                               FontWeight="Bold"
-                               Margin="0,0,0,12"/>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Sequence"
+                                                    Binding="{Binding Sequence}"
+                                                    Width="70"/>
 
-                    <DataGrid ItemsSource="{Binding MemoryMap}"
-                              AutoGenerateColumns="False"
-                              IsReadOnly="True"
-                              CanUserAddRows="False"
-                              MinHeight="150">
+                                <DataGridTextColumn Header="Operation"
+                                                    Binding="{Binding Operation}"
+                                                    Width="*"/>
 
-                        <DataGrid.Columns>
+                                <DataGridTextColumn Header="Process"
+                                                    Binding="{Binding ProcessId}"
+                                                    Width="*"/>
 
-                            <DataGridTextColumn Header="Start Address"
-                                                Binding="{Binding StartAddress}"
-                                                Width="*"/>
+                                <DataGridTextColumn Header="Requested"
+                                                    Binding="{Binding RequestedSize}"
+                                                    Width="*"/>
 
-                            <DataGridTextColumn Header="Size (KB)"
-                                                Binding="{Binding Size}"
-                                                Width="*"/>
+                                <DataGridTextColumn Header="Allocated"
+                                                    Binding="{Binding AllocatedSize}"
+                                                    Width="*"/>
 
-                            <DataGridTextColumn Header="Is Free"
-                                                Binding="{Binding IsFree}"
-                                                Width="*"/>
+                                <DataGridTextColumn Header="Status"
+                                                    Binding="{Binding Status}"
+                                                    Width="*"/>
 
-                            <DataGridTextColumn Header="Process ID"
-                                                Binding="{Binding ProcessId}"
-                                                Width="*"/>
-
-                            <DataGridTextColumn Header="Requested Size"
-                                                Binding="{Binding RequestedSize}"
-                                                Width="*"/>
-
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </StackPanel>
-            </Border>
-
-            <!-- 5. OPERATION TRACE -->
-            <Border Style="{StaticResource CardBorder}"
-                    Padding="16">
-
-                <StackPanel>
-                    <TextBlock Text="5. Operation Trace"
-                               FontSize="18"
-                               FontWeight="Bold"
-                               Margin="0,0,0,12"/>
-
-                    <DataGrid ItemsSource="{Binding TraceEntries}"
-                              AutoGenerateColumns="False"
-                              IsReadOnly="True"
-                              CanUserAddRows="False"
-                              MinHeight="180">
-
-                        <DataGrid.Columns>
-
-                            <DataGridTextColumn Header="Sequence"
-                                                Binding="{Binding Sequence}"
-                                                Width="70"/>
-
-                            <DataGridTextColumn Header="Operation"
-                                                Binding="{Binding Operation}"
-                                                Width="*"/>
-
-                            <DataGridTextColumn Header="Process"
-                                                Binding="{Binding ProcessId}"
-                                                Width="*"/>
-
-                            <DataGridTextColumn Header="Requested"
-                                                Binding="{Binding RequestedSize}"
-                                                Width="*"/>
-
-                            <DataGridTextColumn Header="Allocated"
-                                                Binding="{Binding AllocatedSize}"
-                                                Width="*"/>
-
-                            <DataGridTextColumn Header="Status"
-                                                Binding="{Binding Status}"
-                                                Width="*"/>
-
-                            <DataGridTextColumn Header="Reason"
-                                                Binding="{Binding Reason}"
-                                                Width="2*"/>
-
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </StackPanel>
-            </Border>
-
-        </StackPanel>
-    </ScrollViewer>
+                                <DataGridTextColumn Header="Reason"
+                                                    Binding="{Binding Reason}"
+                                                    Width="2*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
 </UserControl>

@@ -4,6 +4,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using OSMemoryAllocationSimulator.Models;
 using OSMemoryAllocationSimulator.Services;
+using System.IO;
+using Microsoft.Win32;
+using OSMemoryAllocationSimulator.Data.Csv;
 
 namespace OSMemoryAllocationSimulator.ViewModels.Evaluation
 {
@@ -21,7 +24,10 @@ namespace OSMemoryAllocationSimulator.ViewModels.Evaluation
         double RuntimeRun5Ms,
         double AverageRuntimeMs,
         int TotalInternalFragmentation,
-        int LargestFreeBlock);
+        int LargestFreeBlock,
+        int UsedMemory = 0,
+    int FreeMemory = 0,
+    int FreeBlockCount = 0);
 
     /// <summary>Một điểm dữ liệu cho biểu đồ. Value2 dùng cho biểu đồ 2 cột (thất bại).</summary>
     public sealed record ChartPoint(string Label, double Value, double Value2 = 0);
@@ -29,7 +35,7 @@ namespace OSMemoryAllocationSimulator.ViewModels.Evaluation
     public partial class EvaluationViewModel : BaseViewModel
     {
         private readonly IEvaluationService _service;
-        private IReadOnlyList<WorkloadOperation> _workload = SampleWorkload();
+        private IReadOnlyList<WorkloadOperation> _workload = Array.Empty<WorkloadOperation>();
 
         [ObservableProperty]
         private int memorySize = 4096;
@@ -56,6 +62,8 @@ namespace OSMemoryAllocationSimulator.ViewModels.Evaluation
         [ObservableProperty] private double fragmentationMax = 1;
         [ObservableProperty] private double largestFreeBlockMax = 1;
         [ObservableProperty] private double runtimeMax = 1;
+        [ObservableProperty]
+        private string workloadInfo = "Chưa chọn workload. Cột bắt buộc: Sequence, Operation, ProcessId, RequestedSize";
         public EvaluationViewModel() : this(new EvaluationService())
         {
         }
@@ -70,6 +78,7 @@ namespace OSMemoryAllocationSimulator.ViewModels.Evaluation
         {
             _workload = workload;
             ClearResults();
+            RunEvaluationCommand.NotifyCanExecuteChanged();
         }
 
         partial void OnMemorySizeChanged(int value) => ClearResults();
@@ -88,7 +97,7 @@ namespace OSMemoryAllocationSimulator.ViewModels.Evaluation
             StatusMessage = "Cấu hình hoặc workload đã thay đổi, hãy chạy lại đánh giá.";
         }
 
-        private bool CanRun() => !IsRunning;
+        private bool CanRun() => !IsRunning && _workload.Count > 0;
 
         [RelayCommand(CanExecute = nameof(CanRun))]
         private async Task RunEvaluationAsync()
@@ -156,7 +165,10 @@ namespace OSMemoryAllocationSimulator.ViewModels.Evaluation
                     t[0], t[1], t[2], t[3], t[4],
                     a.AverageRuntimeMs,
                     m.TotalInternalFragmentation,
-                    m.LargestFreeBlock));
+                    m.LargestFreeBlock,
+                    m.UsedMemory,
+                    m.FreeMemory,
+                    m.FreeBlockCount));
 
                 AllocationChart.Add(new ChartPoint(a.Algorithm, a.SuccessfulAllocations, a.FailedAllocations));
                 FragmentationChart.Add(new ChartPoint(a.Algorithm, m.TotalInternalFragmentation));
@@ -171,6 +183,35 @@ namespace OSMemoryAllocationSimulator.ViewModels.Evaluation
             EvaluationComment = BuildComment(ComparisonResults);
         }
 
+        private readonly CsvWorkloadReader _workloadReader = new();
+
+        [RelayCommand]
+        private void ChooseWorkloadFile()
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "Chọn file workload",
+                Filter = "CSV (*.csv)|*.csv"
+            };
+            if (dialog.ShowDialog() != true) return;
+
+            var result = _workloadReader.Read(dialog.FileName);
+
+            if (!result.IsSuccess || result.Value is null)
+            {
+                var lines = result.Errors.Take(5).Select(e => e.ToString()).ToList();
+                if (result.Errors.Count > 5)
+                    lines.Add($"... và {result.Errors.Count - 5} lỗi khác.");
+
+                WorkloadInfo = "Lỗi đọc file workload:" + Environment.NewLine + string.Join(Environment.NewLine, lines);
+                return;
+            }
+
+            SetWorkload(result.Value);
+            WorkloadInfo = $"Đã chọn: {Path.GetFileName(dialog.FileName)} ({result.Value.Count} thao tác)";
+            StatusMessage = "Đã nạp workload. Bấm Chạy đánh giá.";
+        }
+        
         // Nhận xét khách quan, chỉ dựa trên số liệu, không thiên vị thuật toán nào.
         private static string BuildComment(IReadOnlyList<ComparisonRow> rows)
         {

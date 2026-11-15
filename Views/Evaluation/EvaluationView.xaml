@@ -55,8 +55,27 @@
                        FontSize="20"
                        FontWeight="Bold"
                        Margin="0,0,0,14"/>
-            <StackPanel Orientation="Horizontal"
-                        Margin="0,0,0,12">
+
+            <!-- Cấu hình bộ nhớ -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                <StackPanel Margin="0,0,16,0">
+                    <TextBlock Text="MemorySize (KB)" FontWeight="SemiBold"/>
+                    <TextBox Width="140" Margin="0,4,0,0" Padding="4"
+                             Text="{Binding MemorySize, UpdateSourceTrigger=PropertyChanged}"/>
+                </StackPanel>
+                <StackPanel>
+                    <TextBlock Text="AllocationUnit (KB)" FontWeight="SemiBold"/>
+                    <TextBox Width="140" Margin="0,4,0,0" Padding="4"
+                             Text="{Binding AllocationUnit, UpdateSourceTrigger=PropertyChanged}"/>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Các nút -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                <Button Content="Chọn file CSV..."
+                        Command="{Binding ChooseWorkloadFileCommand}"
+                        Padding="16,8"
+                        Margin="0,0,8,0"/>
                 <Button Content="Chạy đánh giá"
                         Command="{Binding RunEvaluationCommand}"
                         Padding="16,8"
@@ -65,9 +84,13 @@
                         Command="{Binding ExportComparisonCommand}"
                         Padding="16,8"/>
             </StackPanel>
+
+            <TextBlock Text="{Binding WorkloadInfo}" TextWrapping="Wrap" Margin="0,0,0,4"/>
+            <TextBlock Text="{Binding StatusMessage}" Foreground="Gray" Margin="0,0,0,8"/>
             <TextBlock Text="{Binding EvaluationComment}"
                        TextWrapping="Wrap"
                        Margin="0,0,0,14"/>
+
             <TextBlock Text="Bảng so sánh"
                        FontSize="16"
                        FontWeight="SemiBold"/>
@@ -90,12 +113,16 @@
                     <DataGridTextColumn Header="TB (ms)" Binding="{Binding AverageRuntimeMs, StringFormat=F4}"/>
                     <DataGridTextColumn Header="Phân mảnh nội bộ" Binding="{Binding TotalInternalFragmentation}"/>
                     <DataGridTextColumn Header="Vùng trống lớn nhất" Binding="{Binding LargestFreeBlock}"/>
+                    <DataGridTextColumn Header="Tổng bộ nhớ sử dụng (KB)" Binding="{Binding UsedMemory}"/>
+                    <DataGridTextColumn Header="Tổng bộ nhớ trống (KB)" Binding="{Binding FreeMemory}"/>
+                    <DataGridTextColumn Header="Số vùng trống" Binding="{Binding FreeBlockCount}"/>
                 </DataGrid.Columns>
             </DataGrid>
 
             <TextBlock Text="Biểu đồ so sánh"
                        FontSize="16"
                        FontWeight="SemiBold"/>
+
             <TextBlock Text="1. Cấp phát thành công / thất bại" FontWeight="SemiBold" Margin="0,10,0,2"/>
             <ItemsControl ItemsSource="{Binding AllocationChart}"
                           Tag="{Binding AllocationMax}"
@@ -118,3 +145,4 @@
         </StackPanel>
     </ScrollViewer>
 </UserControl>
+    

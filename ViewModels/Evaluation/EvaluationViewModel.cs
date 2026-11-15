@@ -52,7 +52,10 @@ namespace OSMemoryAllocationSimulator.ViewModels.Evaluation
         public ObservableCollection<ChartPoint> FragmentationChart { get; } = new();
         public ObservableCollection<ChartPoint> LargestFreeBlockChart { get; } = new();
         public ObservableCollection<ChartPoint> RuntimeChart { get; } = new();
-
+        [ObservableProperty] private double allocationMax = 1;
+        [ObservableProperty] private double fragmentationMax = 1;
+        [ObservableProperty] private double largestFreeBlockMax = 1;
+        [ObservableProperty] private double runtimeMax = 1;
         public EvaluationViewModel() : this(new EvaluationService())
         {
         }
@@ -160,6 +163,10 @@ namespace OSMemoryAllocationSimulator.ViewModels.Evaluation
                 LargestFreeBlockChart.Add(new ChartPoint(a.Algorithm, m.LargestFreeBlock));
                 RuntimeChart.Add(new ChartPoint(a.Algorithm, a.AverageRuntimeMs));
             }
+            AllocationMax = Math.Max(0.0001, AllocationChart.Select(p => Math.Max(p.Value, p.Value2)).DefaultIfEmpty(0).Max());
+            FragmentationMax = Math.Max(0.0001, FragmentationChart.Select(p => p.Value).DefaultIfEmpty(0).Max());
+            LargestFreeBlockMax = Math.Max(0.0001, LargestFreeBlockChart.Select(p => p.Value).DefaultIfEmpty(0).Max());
+            RuntimeMax = Math.Max(0.0001, RuntimeChart.Select(p => p.Value).DefaultIfEmpty(0).Max());
 
             EvaluationComment = BuildComment(ComparisonResults);
         }

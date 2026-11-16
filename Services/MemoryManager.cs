@@ -15,11 +15,7 @@ public class MemoryManager
 
     public MemoryManager(SimulationConfig config)
     {
-        if (config.MemorySize <= 0 || config.AllocationUnit <= 0)
-            throw new ArgumentException("MemorySize và AllocationUnit phải là số nguyên dương.");
-
-        if (config.MemorySize < config.AllocationUnit)
-            throw new ArgumentException("MemorySize phải lớn hơn hoặc bằng AllocationUnit.");
+        ArgumentNullException.ThrowIfNull(config);
 
         Config = config;
         _regions = new List<MemoryRegion>
@@ -50,17 +46,13 @@ public class MemoryManager
         int requestedSize = op.RequestedSize ?? 0;
         if (requestedSize <= 0)
         {
-            var m = GetMetrics();
-            return new TraceEntry(op.Sequence, op.Operation, op.ProcessId, requestedSize, null,
-                OperationStatus.Failed, "INVALID_REQUESTED_SIZE", m.FreeMemory, m.LargestFreeBlock, m.TotalInternalFragmentation);
+            return CreateFailedTrace(op, requestedSize, "INVALID_REQUESTED_SIZE");
         }
 
         // Kiểm tra duplicate active PID
         if (_regions.Any(r => !r.IsFree && string.Equals(r.ProcessId, op.ProcessId, StringComparison.Ordinal)))
         {
-            var m = GetMetrics();
-            return new TraceEntry(op.Sequence, op.Operation, op.ProcessId, requestedSize, null,
-                OperationStatus.Failed, "DUPLICATE_ACTIVE_PID", m.FreeMemory, m.LargestFreeBlock, m.TotalInternalFragmentation);
+            return CreateFailedTrace(op, requestedSize, "DUPLICATE_ACTIVE_PID");
         }
 
         // Làm tròn kích thước: ceil(R / U) * U
@@ -70,9 +62,7 @@ public class MemoryManager
         // Vượt quá tổng bộ nhớ
         if (allocatedSize > Config.MemorySize)
         {
-            var m = GetMetrics();
-            return new TraceEntry(op.Sequence, op.Operation, op.ProcessId, requestedSize, null,
-                OperationStatus.Failed, "REQUEST_EXCEEDS_MEMORY", m.FreeMemory, m.LargestFreeBlock, m.TotalInternalFragmentation);
+            return CreateFailedTrace(op, requestedSize, "REQUEST_EXCEEDS_MEMORY");
         }
 
         // Lấy danh sách vùng trống (đã theo StartAddress tăng dần)
@@ -81,9 +71,7 @@ public class MemoryManager
 
         if (chosen == null)
         {
-            var m = GetMetrics();
-            return new TraceEntry(op.Sequence, op.Operation, op.ProcessId, requestedSize, null,
-                OperationStatus.Failed, "INSUFFICIENT_MEMORY", m.FreeMemory, m.LargestFreeBlock, m.TotalInternalFragmentation);
+            return CreateFailedTrace(op, requestedSize, "INSUFFICIENT_MEMORY");
         }
 
         // Cấp phát: thay thế chosen block
@@ -112,9 +100,7 @@ public class MemoryManager
         var targetIndex = _regions.FindIndex(r => !r.IsFree && string.Equals(r.ProcessId, op.ProcessId, StringComparison.Ordinal));
         if (targetIndex < 0)
         {
-            var m = GetMetrics();
-            return new TraceEntry(op.Sequence, op.Operation, op.ProcessId, op.RequestedSize, null,
-                OperationStatus.Failed, "PID_NOT_FOUND", m.FreeMemory, m.LargestFreeBlock, m.TotalInternalFragmentation);
+            return CreateFailedTrace(op, op.RequestedSize, "PID_NOT_FOUND");
         }
 
         var target = _regions[targetIndex];
@@ -129,6 +115,22 @@ public class MemoryManager
         var metricsAfter = GetMetrics();
         return new TraceEntry(op.Sequence, op.Operation, op.ProcessId, op.RequestedSize, reclaimedSize,
             OperationStatus.Success, "SUCCESS", metricsAfter.FreeMemory, metricsAfter.LargestFreeBlock, metricsAfter.TotalInternalFragmentation);
+    }
+
+    private TraceEntry CreateFailedTrace(WorkloadOperation op, int? requestedSize, string reason)
+    {
+        var m = GetMetrics();
+        return new TraceEntry(
+            op.Sequence,
+            op.Operation,
+            op.ProcessId,
+            requestedSize,
+            null,
+            OperationStatus.Failed,
+            reason,
+            m.FreeMemory,
+            m.LargestFreeBlock,
+            m.TotalInternalFragmentation);
     }
 
     private void Coalesce()

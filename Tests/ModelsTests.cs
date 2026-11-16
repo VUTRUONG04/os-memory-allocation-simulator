@@ -13,6 +13,24 @@ public class ModelsTests
         Assert.Equal(64, config.AllocationUnit);
     }
 
+    [Theory]
+    [InlineData(0, 64)]
+    [InlineData(-100, 64)]
+    [InlineData(1024, 0)]
+    [InlineData(1024, -16)]
+    public void SimulationConfig_ShouldThrowWhenMemorySizeOrAllocationUnitNotPositive(int memorySize, int allocationUnit)
+    {
+        var ex = Assert.Throws<ArgumentException>(() => new SimulationConfig(memorySize, allocationUnit));
+        Assert.Contains("số nguyên dương", ex.Message);
+    }
+
+    [Fact]
+    public void SimulationConfig_ShouldThrowWhenMemorySizeLessThanAllocationUnit()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => new SimulationConfig(64, 128));
+        Assert.Contains("lớn hơn hoặc bằng", ex.Message);
+    }
+
     [Fact]
     public void WorkloadOperation_Allocate_ShouldStoreRequestedSize()
     {

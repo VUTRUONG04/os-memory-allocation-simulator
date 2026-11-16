@@ -35,6 +35,9 @@ namespace OSMemoryAllocationSimulator.ViewModels.Evaluation
     public partial class EvaluationViewModel : BaseViewModel
     {
         private readonly IEvaluationService _service;
+        private readonly IComparisonCsvExporter _comparisonCsvExporter;
+        private string _workloadName = "Workload";
+        private readonly CsvWorkloadReader _workloadReader;
         private IReadOnlyList<WorkloadOperation> _workload = Array.Empty<WorkloadOperation>();
 
         [ObservableProperty]
@@ -45,6 +48,7 @@ namespace OSMemoryAllocationSimulator.ViewModels.Evaluation
 
         [ObservableProperty]
         [NotifyCanExecuteChangedFor(nameof(RunEvaluationCommand))]
+        [NotifyCanExecuteChangedFor(nameof(ExportComparisonCommand))]
         private bool isRunning;
 
         [ObservableProperty]
@@ -64,13 +68,26 @@ namespace OSMemoryAllocationSimulator.ViewModels.Evaluation
         [ObservableProperty] private double runtimeMax = 1;
         [ObservableProperty]
         private string workloadInfo = "Chưa chọn workload. Cột bắt buộc: Sequence, Operation, ProcessId, RequestedSize";
-        public EvaluationViewModel() : this(new EvaluationService())
+        public EvaluationViewModel()
+            : this(
+                new EvaluationService(),
+                new CsvWorkloadReader(),
+                new CsvExporter())
         {
         }
 
-        public EvaluationViewModel(IEvaluationService service)
+        public EvaluationViewModel(
+            IEvaluationService service,
+            CsvWorkloadReader workloadReader,
+            IComparisonCsvExporter csvExporter)
         {
-            _service = service;
+            _service = service ?? throw new ArgumentNullException(nameof(service));
+            _workloadReader = workloadReader ?? throw new ArgumentNullException(nameof(workloadReader));
+
+            ArgumentNullException.ThrowIfNull(csvExporter);
+
+            _comparisonCsvExporter = csvExporter;
+
         }
 
         /// <summary>Nạp workload hợp lệ. Kết quả cũ bị xóa.</summary>
@@ -94,10 +111,12 @@ namespace OSMemoryAllocationSimulator.ViewModels.Evaluation
             LargestFreeBlockChart.Clear();
             RuntimeChart.Clear();
             EvaluationComment = string.Empty;
+            ExportComparisonCommand.NotifyCanExecuteChanged();
             StatusMessage = "Cấu hình hoặc workload đã thay đổi, hãy chạy lại đánh giá.";
         }
 
         private bool CanRun() => !IsRunning && _workload.Count > 0;
+        private bool CanExport() => !IsRunning && ComparisonResults.Count > 0;
 
         [RelayCommand(CanExecute = nameof(CanRun))]
         private async Task RunEvaluationAsync()
@@ -135,14 +154,59 @@ namespace OSMemoryAllocationSimulator.ViewModels.Evaluation
             }
         }
 
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanExport))]
         private void ExportComparison()
         {
-            // Tạm thời: chưa có CsvExporter (theo task Jira).
-            Debug.WriteLine("Exporting...");
-            StatusMessage = "Xuất CSV so sánh: chưa có CsvExporter.";
-        }
+            if (ComparisonResults.Count == 0)
+            {
+                StatusMessage = "Chưa có kết quả để xuất CSV. Hãy chạy đánh giá trước.";
+                return;
+            }
 
+            try
+            {
+                var records = ComparisonResults.Select(r => new ComparisonRecord(
+                    workloadName: _workloadName,
+                    algorithm: r.AlgorithmName,
+                    operationCount: _workload.Count,
+                    memorySize: MemorySize,
+                    allocationUnit: AllocationUnit,
+                    totalAllocationRequests: r.TotalAllocateRequests,
+                    successfulAllocations: r.SuccessCount,
+                    failedAllocations: r.FailureCount,
+                    successRate: r.SuccessRate,
+                    usedMemory: r.UsedMemory,
+                    freeMemory: r.FreeMemory,
+                    freeBlockCount: r.FreeBlockCount,
+                    largestFreeBlock: r.LargestFreeBlock,
+                    totalInternalFragmentation: r.TotalInternalFragmentation,
+                    runtimeRun1Ms: r.RuntimeRun1Ms,
+                    runtimeRun2Ms: r.RuntimeRun2Ms,
+                    runtimeRun3Ms: r.RuntimeRun3Ms,
+                    runtimeRun4Ms: r.RuntimeRun4Ms,
+                    runtimeRun5Ms: r.RuntimeRun5Ms,
+                    averageRuntimeMs: r.AverageRuntimeMs
+                )).ToList();
+
+                var dialog = new SaveFileDialog
+                {
+                    Title = "Lưu file so sánh thuật toán (CSV)",
+                    Filter = "CSV files (*.csv)|*.csv",
+                    FileName = CsvExporter.GenerateComparisonFileName(_workloadName)
+                };
+
+                if (dialog.ShowDialog() != true)
+                    return;
+
+                CsvExporter.ExportComparisonToFile(dialog.FileName, records);
+
+                StatusMessage = $"Đã xuất file so sánh thành công: {Path.GetFileName(dialog.FileName)}";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Lỗi khi xuất file CSV: {ex.Message}";
+            }
+        }
         private void Fill(EvaluationResult result)
         {
             ComparisonResults.Clear();
@@ -183,7 +247,6 @@ namespace OSMemoryAllocationSimulator.ViewModels.Evaluation
             EvaluationComment = BuildComment(ComparisonResults);
         }
 
-        private readonly CsvWorkloadReader _workloadReader = new();
 
         [RelayCommand]
         private void ChooseWorkloadFile()
@@ -195,6 +258,7 @@ namespace OSMemoryAllocationSimulator.ViewModels.Evaluation
             };
             if (dialog.ShowDialog() != true) return;
 
+            _workloadName = Path.GetFileNameWithoutExtension(dialog.FileName);
             var result = _workloadReader.Read(dialog.FileName);
 
             if (!result.IsSuccess || result.Value is null)

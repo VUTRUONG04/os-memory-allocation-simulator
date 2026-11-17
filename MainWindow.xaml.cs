@@ -20,5 +20,23 @@ namespace OSMemoryAllocationSimulator
         {
             InitializeComponent();
         }
+
+        private void BtnTabSimulation_Click(
+            object sender, RoutedEventArgs e)
+        {
+            ViewSimulation.Visibility = Visibility.Visible;
+            ViewEvaluation.Visibility = Visibility.Collapsed;
+            BtnTabSimulation.Style = (Style)FindResource("BtnPrimary");
+            BtnTabEvaluation.Style = (Style)FindResource("BtnSecondary");
+        }
+
+        private void BtnTabEvaluation_Click(
+            object sender, RoutedEventArgs e)
+        {
+            ViewSimulation.Visibility = Visibility.Collapsed;
+            ViewEvaluation.Visibility = Visibility.Visible;
+            BtnTabSimulation.Style = (Style)FindResource("BtnSecondary");
+            BtnTabEvaluation.Style = (Style)FindResource("BtnPrimary");
+        }
     }
 }
